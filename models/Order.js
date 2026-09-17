@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
-const { ORDER_STATUSES, DELIVERY_METHODS } = require("../utils/constants");
+const Counter = require("./Counter");
+const { ORDER_STATUSES, DELIVERY_METHODS, PAYMENT_STATUSES } = require("../utils/constants");
 
 const orderItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
@@ -30,7 +31,15 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ["Card", "Bank Transfer"],
-      default: "Card",
+      default: "Bank Transfer", // Stripe/Card is temporarily disabled in the active checkout
+    },
+
+    // Payment confirmation state. "Pending" until the admin manually confirms
+    // the bank transfer has been received — the customer can never set this.
+    paymentStatus: {
+      type: String,
+      enum: PAYMENT_STATUSES, // ["Pending", "Paid"]
+      default: "Pending",
     },
 
     items: {
@@ -65,12 +74,30 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-generate orderId before saving if not already set
+// Auto-generate a sequential orderId before saving if not already set.
+// Format: MUB-0001, MUB-0002, ... via an atomic counter document, so two
+// checkouts happening at the same instant can never collide on the same number.
 // NOTE: Mongoose 9 deprecated callback-style hooks — use async instead
 orderSchema.pre("save", async function () {
   if (!this.orderId) {
-    // Use last 6 chars of ObjectId (hex) — gives 16^6 ≈ 16M unique values
-    this.orderId = "ORD-" + String(this._id).slice(-6).toUpperCase();
+    const counter = await Counter.findOneAndUpdate(
+      { _id: "orderNumber" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    this.orderId = "MUB-" + String(counter.seq).padStart(4, "0");
+  }
+
+  // Keep the legacy isPaid/paidAt fields in sync with paymentStatus so any
+  // existing code that still reads isPaid (e.g. the Stripe flow) keeps working.
+  if (this.isModified("paymentStatus")) {
+    if (this.paymentStatus === "Paid") {
+      this.isPaid = true;
+      if (!this.paidAt) this.paidAt = new Date();
+    } else {
+      this.isPaid = false;
+      this.paidAt = undefined;
+    }
   }
 });
 

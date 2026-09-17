@@ -1,4 +1,5 @@
 const { BrevoClient } = require("@getbrevo/brevo");
+const { BANK_DETAILS } = require("../utils/constants");
 
 const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY,
@@ -74,6 +75,70 @@ const footerBlock = `
 // ─── Customer Order Confirmation ──────────────────────────────────────────────
 
 const buildOrderHtml = (order) => {
+  const isPaid = order.paymentStatus === "Paid";
+  const isBankTransfer = order.paymentMethod === "Bank Transfer";
+
+  const paymentBannerBlock = !isPaid
+    ? `
+    <tr>
+      <td style="padding: 28px 40px 0;">
+        <div style="
+          background: #fff8e1;
+          border: 1px solid #ffe082;
+          border-left: 5px solid #ffc107;
+          border-radius: 0 10px 10px 0;
+          padding: 18px 22px;
+        ">
+          <p style="margin:0 0 6px;font-weight:bold;color:#333;font-size:14px;font-family:Arial,sans-serif;">
+            ⏳ Payment Status: Awaiting Bank Transfer
+          </p>
+          <p style="margin:0;font-size:14px;color:#666;line-height:1.6;font-family:Arial,sans-serif;">
+            Your order has been received, but payment has not been confirmed yet. Please complete your
+            bank transfer using the details below — we'll email you again the moment it's confirmed.
+          </p>
+        </div>
+      </td>
+    </tr>`
+    : "";
+
+  const bankDetailsBlock = !isPaid && isBankTransfer
+    ? `
+    <tr>
+      <td style="padding: 24px 40px 0;">
+        <h3 style="
+          margin: 0 0 16px;
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          color: #999;
+          font-family: Arial, sans-serif;
+        ">Bank Transfer Details</h3>
+        <table width="100%" style="border-collapse:collapse;border:1px solid #f0ece0;border-radius:10px;overflow:hidden;">
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;width:40%;">BANK</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;">${BANK_DETAILS.bankName}</td>
+          </tr>
+          <tr style="background:#ffffff;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">ACCOUNT NAME</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${BANK_DETAILS.accountName}</td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">SORT CODE</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${BANK_DETAILS.sortCode}</td>
+          </tr>
+          <tr style="background:#ffffff;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">ACCOUNT NUMBER</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${BANK_DETAILS.accountNumber}</td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">REFERENCE</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;font-weight:bold;border-top:1px solid #f5f5f5;">${order.orderId}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>`
+    : "";
+
   const rows = order.items
     .map(
       (item) => `
@@ -158,10 +223,14 @@ const buildOrderHtml = (order) => {
           Hello, ${order.customerName}! 👋
         </p>
         <p style="margin:8px 0 0;color:#777;font-size:14px;">
-          We've received your order and our kitchen is already on it.
+          ${isPaid
+            ? "We've received your order and our kitchen is already on it."
+            : "We've received your order — it will move to preparation as soon as your payment is confirmed."}
         </p>
       </td>
     </tr>
+    ${paymentBannerBlock}
+    ${bankDetailsBlock}
 
     <!-- ── Order Summary ── -->
     <tr>
@@ -196,13 +265,27 @@ const buildOrderHtml = (order) => {
             </td>
           </tr>
           <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">PAYMENT</td>
+            <td style="padding:13px 18px;border-top:1px solid #f5f5f5;">
+              <span style="
+                background:${isPaid ? "#e8f6ea" : "#fff8e1"};
+                color:${isPaid ? "#2f9e44" : "#e6a817"};
+                font-size:13px;
+                font-weight:bold;
+                padding:4px 12px;
+                border-radius:20px;
+                border:1px solid ${isPaid ? "#b2e2bb" : "#ffe082"};
+              ">${isPaid ? "Paid" : "Awaiting Bank Transfer"}</span>
+            </td>
+          </tr>
+          <tr style="background:#ffffff;">
             <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">DELIVERY</td>
             <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${order.method}</td>
           </tr>
           ${
             order.address
               ? `
-          <tr style="background:#ffffff;">
+          <tr style="background:#fafafa;">
             <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">ADDRESS</td>
             <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${order.address}</td>
           </tr>`
@@ -445,6 +528,24 @@ const buildAdminHtml = (order) => {
           </tr>`
               : ""
           }
+          <tr style="background:#fff;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">PAYMENT METHOD</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${order.paymentMethod || "Bank Transfer"}</td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">PAYMENT STATUS</td>
+            <td style="padding:13px 18px;border-top:1px solid #f5f5f5;">
+              <span style="
+                background:${order.paymentStatus === "Paid" ? "#e8f6ea" : "#fdeaea"};
+                color:${order.paymentStatus === "Paid" ? "#2f9e44" : "#d9534f"};
+                font-size:13px;
+                font-weight:bold;
+                padding:4px 12px;
+                border-radius:20px;
+                border:1px solid ${order.paymentStatus === "Paid" ? "#b2e2bb" : "#f3c6c6"};
+              ">${order.paymentStatus || "Pending"}</span>
+            </td>
+          </tr>
         </table>
 
       </td>
@@ -545,10 +646,14 @@ const sendOrderConfirmation = async (order) => {
       return;
     }
 
+    const subject = order.paymentStatus === "Paid"
+      ? `🎉 Your Mublat Order #${order.orderId || order._id} is Confirmed`
+      : `✅ Order Received — #${order.orderId || order._id} (Awaiting Bank Transfer)`;
+
     const result = await brevo.transactionalEmails.sendTransacEmail({
       sender,
       to: [{ email: order.email, name: order.customerName }],
-      subject: `🎉 Your Mublat Order #${order.orderId || order._id} is Confirmed`,
+      subject,
       htmlContent: buildOrderHtml(order),
     });
 
@@ -578,6 +683,125 @@ const sendAdminNotification = async (order) => {
     return result;
   } catch (error) {
     console.error("❌ Admin Email Error");
+    console.error(error);
+  }
+};
+
+// ─── Payment Confirmation (sent when admin manually marks an order Paid) ──────
+
+const buildPaymentConfirmedHtml = (order) => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Confirmed – Mublat Bake &amp; Blends</title>
+</head>
+<body style="margin:0;padding:30px 10px;background:#f2ede4;font-family:Arial,sans-serif;">
+
+  <table width="620" align="center" cellspacing="0" cellpadding="0"
+    style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.10);">
+
+    <tr>
+      <td style="background:#111111;padding:36px 40px 30px;text-align:center;">
+        ${logoBlock}
+        <p style="
+          margin: 14px 0 0;
+          color: #cccccc;
+          font-size: 14px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          font-family: Arial, sans-serif;
+        ">Payment Confirmed</p>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="
+        background: linear-gradient(135deg, #eafaf0, #d7f3e2);
+        padding: 28px 40px;
+        border-bottom: 2px solid #b2e2bb;
+        text-align: center;
+      ">
+        <p style="margin:0;font-size:22px;font-weight:bold;color:#2f9e44;">
+          ✅ Payment Confirmed
+        </p>
+        <p style="margin:8px 0 0;color:#555;font-size:14px;">
+          We've received your bank transfer for order <strong>${order.orderId}</strong>. Your order is now being processed.
+        </p>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 36px 40px 0;">
+        <h3 style="
+          margin: 0 0 16px;
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          color: #999;
+          font-family: Arial, sans-serif;
+        ">Order Summary</h3>
+
+        <table width="100%" style="border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #f0ece0;">
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;width:40%;">ORDER ID</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;font-weight:bold;">${order.orderId}</td>
+          </tr>
+          <tr style="background:#ffffff;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">AMOUNT PAID</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;font-weight:bold;border-top:1px solid #f5f5f5;">£${Number(order.totalAmount).toFixed(2)}</td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">DELIVERY</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${order.method}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 28px 40px 36px;">
+        <div style="
+          background: #f9f6ef;
+          border-left: 5px solid #d4af37;
+          border-radius: 0 10px 10px 0;
+          padding: 18px 22px;
+        ">
+          <p style="margin:0;font-size:14px;color:#666;line-height:1.7;font-family:Arial,sans-serif;">
+            🍰 Thank you for choosing <strong style="color:#333;">Mublat Bake &amp; Blends</strong>.
+            Your order is now in the kitchen queue — we'll keep you posted as it moves along.
+          </p>
+        </div>
+      </td>
+    </tr>
+
+    ${footerBlock}
+
+  </table>
+
+</body>
+</html>
+`;
+
+const sendPaymentConfirmation = async (order) => {
+  try {
+    if (!order.email) {
+      console.log("Customer has no email address — payment confirmation skipped.");
+      return;
+    }
+
+    const result = await brevo.transactionalEmails.sendTransacEmail({
+      sender,
+      to: [{ email: order.email, name: order.customerName }],
+      subject: `✅ Payment Confirmed — Order #${order.orderId}`,
+      htmlContent: buildPaymentConfirmedHtml(order),
+    });
+
+    console.log("✅ Payment confirmation email sent");
+    return result;
+  } catch (error) {
+    console.error("❌ Payment Confirmation Email Error");
     console.error(error);
   }
 };
@@ -685,5 +909,6 @@ const sendSupportEmail = async ({ name, email, topic, message }) => {
 module.exports = {
   sendOrderConfirmation,
   sendAdminNotification,
+  sendPaymentConfirmation,
   sendSupportEmail,
 };

@@ -8,23 +8,37 @@ const ApiError     = require("../utils/ApiError");
  *
  * Fix #2: Now queries the stored orderId field directly with an index —
  * no more loading 500 orders into memory and filtering in JS.
+ *
+ * Also used by the checkout Success page to fetch the authoritative order
+ * (number, total, payment status) from the server instead of trusting
+ * whatever was passed through client-side navigation state.
  */
 const trackOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   const normalised  = orderId.trim().toUpperCase();
 
-  // Support both "ORD-ABC123" and bare "ABC123"
-  const queryId = normalised.startsWith("ORD-") ? normalised : `ORD-${normalised}`;
+  // Current format is "MUB-0001"; "ORD-XXXXXX" is the legacy format for
+  // orders created before the order-numbering change. Support bare numbers
+  // (just digits) defaulting to the current MUB- prefix, plus both full
+  // prefixed forms as typed.
+  const candidates = new Set([normalised]);
+  if (/^\d+$/.test(normalised)) {
+    candidates.add(`MUB-${normalised.padStart(4, "0")}`);
+  }
+  if (!normalised.includes("-")) {
+    candidates.add(`MUB-${normalised}`);
+    candidates.add(`ORD-${normalised}`);
+  }
 
   // Also support direct MongoDB _id lookup as fallback
   const order = await Order.findOne({
     $or: [
-      { orderId: queryId },
-      { orderId: normalised },
+      { orderId: { $in: [...candidates] } },
       ...(orderId.match(/^[a-f\d]{24}$/i) ? [{ _id: orderId }] : []),
     ],
   }).select(
-    "customerName phone method address items totalAmount deliveryFee status createdAt orderId"
+    "customerName phone method address items totalAmount deliveryFee status " +
+    "paymentMethod paymentStatus createdAt orderId"
   );
 
   if (!order) {
@@ -34,16 +48,18 @@ const trackOrder = asyncHandler(async (req, res) => {
   res.json({
     type:  "success",
     order: {
-      _id:          order._id,
-      orderId:      order.orderId,
-      customerName: order.customerName,
-      method:       order.method,
-      address:      order.address,
-      items:        order.items,
-      totalAmount:  order.totalAmount,
-      deliveryFee:  order.deliveryFee,
-      status:       order.status,
-      createdAt:    order.createdAt,
+      _id:           order._id,
+      orderId:       order.orderId,
+      customerName:  order.customerName,
+      method:        order.method,
+      address:       order.address,
+      items:         order.items,
+      totalAmount:   order.totalAmount,
+      deliveryFee:   order.deliveryFee,
+      status:        order.status,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      createdAt:     order.createdAt,
     },
   });
 });

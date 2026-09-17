@@ -56,4 +56,13 @@ const updateStatusValidation = [
   handleValidationErrors,
 ];
 
-module.exports = { orderValidation, updateStatusValidation };
+// Admin-only: confirming a bank transfer. Only "Paid" is accepted here —
+// see order.controller.updateOrderPayment for why reverting isn't exposed.
+const updatePaymentValidation = [
+  body("paymentStatus")
+    .equals("Paid")
+    .withMessage('paymentStatus must be "Paid"'),
+  handleValidationErrors,
+];
+
+module.exports = { orderValidation, updateStatusValidation, updatePaymentValidation };
