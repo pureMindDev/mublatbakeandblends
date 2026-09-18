@@ -1,7 +1,7 @@
 {
   "name": "mublat-server",
   "version": "1.0.0",
-  "description": "Mublat Pastries & Drinks \u2014 Backend API",
+  "description": "Mublat Bake & Blends \u2014 Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
