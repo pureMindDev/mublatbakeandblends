@@ -1,9 +1,13 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
 dotenv.config();
+
+const validateEnv = require("./config/validateEnv");
+validateEnv();
 
 const connectDB = require("./config/db");
 connectDB();
@@ -24,6 +28,16 @@ const notFound = require("./middlewares/notFoundMiddleware");
 const errorHandler = require("./middlewares/errorMiddleware");
 
 const app = express();
+
+/* ── Security headers ──
+ * This server is API-only (the React frontend is a separate app), so the
+ * default Content-Security-Policy — meant for pages that render HTML —
+ * isn't relevant here and is turned off. The rest of Helmet's defaults
+ * (X-Content-Type-Options, X-Frame-Options, hiding X-Powered-By, HSTS,
+ * etc.) still apply and are good practice for any Express API. */
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 
 /* ── CORS ── */
 const allowedOrigins = [
