@@ -26,10 +26,16 @@ if (!NEW_ADMIN.email || !NEW_ADMIN.password) {
   process.exit(1);
 }
 
-mongoose.connect(process.env.MONGO_URI);
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is not set in server/.env.");
+  process.exit(1);
+}
 
 const resetAdmin = async () => {
   try {
+    await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 8000 });
+    console.log("✅ Connected to MongoDB.");
+
     const { deletedCount } = await User.deleteMany({ role: "admin" });
     console.log(`🗑️  Removed ${deletedCount} existing admin account(s).`);
 

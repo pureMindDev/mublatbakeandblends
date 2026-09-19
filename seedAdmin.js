@@ -13,8 +13,6 @@ require("dotenv").config();
 
 const User = require("./models/User");
 
-mongoose.connect(process.env.MONGO_URI);
-
 const createAdmin = async () => {
   try {
     const email = process.env.ADMIN_SEED_EMAIL;
@@ -26,6 +24,14 @@ const createAdmin = async () => {
       );
       return process.exit(1);
     }
+
+    if (!process.env.MONGO_URI) {
+      console.error("❌ MONGO_URI is not set in server/.env.");
+      return process.exit(1);
+    }
+
+    await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 8000 });
+    console.log("✅ Connected to MongoDB.");
 
     const existing = await User.findOne({ email });
 
