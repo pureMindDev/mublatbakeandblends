@@ -7,20 +7,13 @@ const ApiError = require("../utils/ApiError");
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  console.log("Login Email:", email);
-  console.log("Login Password:", password);
-
   const admin = await User.findOne({ email });
-
-  console.log("Admin Found:", admin);
 
   if (!admin) {
     throw ApiError.unauthorized("Invalid email or password");
   }
 
   const match = await admin.matchPassword(password);
-
-  console.log("Password Match:", match);
 
   if (!match) {
     throw ApiError.unauthorized("Invalid email or password");

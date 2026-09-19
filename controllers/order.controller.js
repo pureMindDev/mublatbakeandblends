@@ -5,6 +5,7 @@ const {
   sendOrderConfirmation,
   sendAdminNotification,
   sendPaymentConfirmation,
+  sendStatusUpdate,
 } = require("../services/emailService");
 
 /*
@@ -154,6 +155,16 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   );
   if (!order) throw ApiError.notFound("Order not found");
+
+  /* Notify the customer of the new status (non-blocking — don't fail the
+   * request if email delivery fails). Skipped silently if the order has
+   * no email on file (e.g. phone/walk-in orders taken by an admin). */
+  try {
+    await sendStatusUpdate(order);
+  } catch (emailErr) {
+    console.error("Status update email error (status still updated):", emailErr.message);
+  }
+
   res.json({ type: "success", message: "Order status updated", order });
 });
 

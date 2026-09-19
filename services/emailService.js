@@ -59,7 +59,7 @@ const footerBlock = `
       Mublat Bake &amp; Blends
     </p>
     <p style="margin:0 0 4px; color:#aaaaaa; font-size:13px; font-family:Arial,sans-serif;">
-      📍 123 Bakery Lane, London, UK
+      📍 33 College Garden, BT35 6DR
     </p>
     <p style="margin:0 0 18px; color:#aaaaaa; font-size:13px; font-family:Arial,sans-serif;">
       📞 +44 7700 000000
@@ -806,6 +806,153 @@ const sendPaymentConfirmation = async (order) => {
   }
 };
 
+// ─── Order Status Update (sent whenever an admin changes order.status) ────────
+
+const STATUS_META = {
+  "Pending":           { emoji: "🕒", color: "#e6a817", bg: "#fff8e1", border: "#ffe082", blurb: "Your order has been received and is waiting to be picked up by our kitchen." },
+  "Preparing":         { emoji: "👩‍🍳", color: "#e6a817", bg: "#fff8e1", border: "#ffe082", blurb: "Great news — our kitchen has started preparing your order." },
+  "Out for Delivery":  { emoji: "🚴", color: "#f5a623", bg: "#fff3e0", border: "#ffcc80", blurb: "Your order is on its way to you now." },
+  "Delivered":         { emoji: "✅", color: "#2f9e44", bg: "#e8f6ea", border: "#b2e2bb", blurb: "Your order has been delivered. We hope you enjoy every bite!" },
+  "Cancelled":         { emoji: "✖️", color: "#d9534f", bg: "#fdeaea", border: "#f3c6c6", blurb: "Your order has been cancelled. If this wasn't expected, please get in touch with us." },
+};
+
+const buildStatusUpdateHtml = (order) => {
+  const meta = STATUS_META[order.status] || STATUS_META["Pending"];
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Update – Mublat Bake &amp; Blends</title>
+</head>
+<body style="margin:0;padding:30px 10px;background:#f2ede4;font-family:Arial,sans-serif;">
+
+  <table width="620" align="center" cellspacing="0" cellpadding="0"
+    style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.10);">
+
+    <tr>
+      <td style="background:#111111;padding:36px 40px 30px;text-align:center;">
+        ${logoBlock}
+        <p style="
+          margin: 14px 0 0;
+          color: #cccccc;
+          font-size: 14px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          font-family: Arial, sans-serif;
+        ">Order Update</p>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="
+        background: ${meta.bg};
+        padding: 28px 40px;
+        border-bottom: 2px solid ${meta.border};
+        text-align: center;
+      ">
+        <p style="margin:0;font-size:22px;font-weight:bold;color:${meta.color};">
+          ${meta.emoji} ${order.status}
+        </p>
+        <p style="margin:8px 0 0;color:#666;font-size:14px;">
+          ${meta.blurb}
+        </p>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 36px 40px 0;">
+        <h3 style="
+          margin: 0 0 16px;
+          font-size: 13px;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          color: #999;
+          font-family: Arial, sans-serif;
+        ">Order Summary</h3>
+
+        <table width="100%" style="border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #f0ece0;">
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;width:40%;">ORDER ID</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;font-weight:bold;">${order.orderId}</td>
+          </tr>
+          <tr style="background:#ffffff;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">STATUS</td>
+            <td style="padding:13px 18px;border-top:1px solid #f5f5f5;">
+              <span style="
+                background:${meta.bg};
+                color:${meta.color};
+                font-size:13px;
+                font-weight:bold;
+                padding:4px 12px;
+                border-radius:20px;
+                border:1px solid ${meta.border};
+              ">${order.status}</span>
+            </td>
+          </tr>
+          <tr style="background:#fafafa;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">DELIVERY</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;border-top:1px solid #f5f5f5;">${order.method}</td>
+          </tr>
+          <tr style="background:#ffffff;">
+            <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:bold;border-top:1px solid #f5f5f5;">AMOUNT</td>
+            <td style="padding:13px 18px;font-size:14px;color:#333;font-weight:bold;border-top:1px solid #f5f5f5;">£${Number(order.totalAmount).toFixed(2)}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 28px 40px 36px;">
+        <div style="
+          background: #f9f6ef;
+          border-left: 5px solid #d4af37;
+          border-radius: 0 10px 10px 0;
+          padding: 18px 22px;
+        ">
+          <p style="margin:0;font-size:14px;color:#666;line-height:1.7;font-family:Arial,sans-serif;">
+            🍰 Thank you for choosing <strong style="color:#333;">Mublat Bake &amp; Blends</strong>.
+            You'll get another email the next time your order's status changes.
+          </p>
+        </div>
+      </td>
+    </tr>
+
+    ${footerBlock}
+
+  </table>
+
+</body>
+</html>
+`;
+};
+
+const sendStatusUpdate = async (order) => {
+  try {
+    if (!order.email) {
+      console.log("Customer has no email address — status update email skipped.");
+      return;
+    }
+
+    const meta = STATUS_META[order.status] || STATUS_META["Pending"];
+
+    const result = await brevo.transactionalEmails.sendTransacEmail({
+      sender,
+      to: [{ email: order.email, name: order.customerName }],
+      subject: `${meta.emoji} Order #${order.orderId} — ${order.status}`,
+      htmlContent: buildStatusUpdateHtml(order),
+    });
+
+    console.log("✅ Status update email sent");
+    return result;
+  } catch (error) {
+    console.error("❌ Status Update Email Error");
+    console.error(error);
+  }
+};
+
 // ─── Support Contact Email ─────────────────────────────────────────────────────
 
 const buildSupportHtml = ({ name, email, topic, message }) => `
@@ -872,7 +1019,7 @@ const buildSupportHtml = ({ name, email, topic, message }) => `
     <tr>
       <td style="background:#111;padding:28px 40px;text-align:center;border-top:3px solid #d4af37;">
         <p style="margin:0 0 4px;color:#d4af37;font-family:Georgia,serif;font-size:14px;">Mublat Bake &amp; Blends</p>
-        <p style="margin:0 0 4px;color:#aaa;font-size:12px;">📍 123 Bakery Lane, London, UK &nbsp;·&nbsp; 📞 +44 7700 000000</p>
+        <p style="margin:0 0 4px;color:#aaa;font-size:12px;">📍 33 College Garden, BT35 6DR &nbsp;·&nbsp; 📞 +44 7700 000000</p>
         <p style="margin:8px 0 0;color:#555;font-size:11px;">© ${new Date().getFullYear()} Mublat Bake &amp; Blends · All rights reserved</p>
       </td>
     </tr>
@@ -910,5 +1057,6 @@ module.exports = {
   sendOrderConfirmation,
   sendAdminNotification,
   sendPaymentConfirmation,
+  sendStatusUpdate,
   sendSupportEmail,
 };
