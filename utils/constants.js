@@ -6,7 +6,7 @@ const ORDER_STATUSES = [
   "Cancelled",
 ];
 
-const PRODUCT_CATEGORIES = ["Pastries", "Drinks"];
+const PRODUCT_CATEGORIES = ["Pastries", "Drinks", "Other"];
 
 const DELIVERY_METHODS = ["Delivery", "Pickup"];
 

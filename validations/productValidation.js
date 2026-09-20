@@ -1,4 +1,5 @@
 const { body, validationResult } = require("express-validator");
+const { PRODUCT_CATEGORIES } = require("../utils/constants");
 
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -24,7 +25,7 @@ const productValidation = [
     .isLength({ max: 200 }).withMessage("Description cannot exceed 200 characters"),
 
   body("category")
-    .isIn(["Pastries", "Drinks"]).withMessage("Category must be Pastries or Drinks"),
+    .isIn(PRODUCT_CATEGORIES).withMessage(`Category must be one of: ${PRODUCT_CATEGORIES.join(", ")}`),
 
   body("options")
     .isArray({ min: 1 }).withMessage("At least one price option is required"),
@@ -49,7 +50,7 @@ const updateProductValidation = [
     .isLength({ max: 200 }).withMessage("Description cannot exceed 200 characters"),
 
   body("category").optional()
-    .isIn(["Pastries", "Drinks"]).withMessage("Category must be Pastries or Drinks"),
+    .isIn(PRODUCT_CATEGORIES).withMessage(`Category must be one of: ${PRODUCT_CATEGORIES.join(", ")}`),
 
   body("options").optional()
     .isArray({ min: 1 }).withMessage("At least one price option is required"),
