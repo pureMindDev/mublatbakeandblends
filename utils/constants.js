@@ -32,6 +32,14 @@ const IMAGE_ALLOWED_FORMATS = ["jpg", "jpeg", "png", "webp"];
 
 const IMAGE_MAX_SIZE_MB = 5;
 
+// Where new-order notifications and support form submissions are sent.
+// The ADMIN_EMAIL environment variable always wins if it's set — this is
+// only the fallback used when that variable is missing/blank on the
+// deployed server, so admin notifications never silently go nowhere.
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.trim() !== ""
+  ? process.env.ADMIN_EMAIL.trim()
+  : "mublatbakeandblends@gmail.com";
+
 module.exports = {
   ORDER_STATUSES,
   PRODUCT_CATEGORIES,
@@ -42,4 +50,5 @@ module.exports = {
   IMAGE_MAX_SIZE_MB,
   PAYMENT_STATUSES,
   BANK_DETAILS,
+  ADMIN_EMAIL,
 };

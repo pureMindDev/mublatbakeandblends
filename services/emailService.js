@@ -1,5 +1,5 @@
 const { BrevoClient } = require("@getbrevo/brevo");
-const { BANK_DETAILS } = require("../utils/constants");
+const { BANK_DETAILS, ADMIN_EMAIL } = require("../utils/constants");
 
 const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY,
@@ -667,19 +667,14 @@ const sendOrderConfirmation = async (order) => {
 
 const sendAdminNotification = async (order) => {
   try {
-    if (!process.env.ADMIN_EMAIL) {
-      console.log("ADMIN_EMAIL not configured.");
-      return;
-    }
-
     const result = await brevo.transactionalEmails.sendTransacEmail({
       sender,
-      to: [{ email: process.env.ADMIN_EMAIL, name: "Mublat Admin" }],
+      to: [{ email: ADMIN_EMAIL, name: "Mublat Admin" }],
       subject: `🛒 New Order Received • ${order.orderId || order._id}`,
       htmlContent: buildAdminHtml(order),
     });
 
-    console.log("✅ Admin notification email sent");
+    console.log(`✅ Admin notification email sent to ${ADMIN_EMAIL}`);
     return result;
   } catch (error) {
     console.error("❌ Admin Email Error");
@@ -1031,20 +1026,15 @@ const buildSupportHtml = ({ name, email, topic, message }) => `
 
 const sendSupportEmail = async ({ name, email, topic, message }) => {
   try {
-    if (!process.env.ADMIN_EMAIL) {
-      console.log("ADMIN_EMAIL not configured — support email skipped.");
-      return;
-    }
-
     const result = await brevo.transactionalEmails.sendTransacEmail({
       sender,
-      to: [{ email: process.env.ADMIN_EMAIL, name: "Mublat Support" }],
+      to: [{ email: ADMIN_EMAIL, name: "Mublat Support" }],
       replyTo: { email, name },   // "Reply" in email client goes straight to customer
       subject: `📩 Support: ${topic} — from ${name}`,
       htmlContent: buildSupportHtml({ name, email, topic, message }),
     });
 
-    console.log("✅ Support email sent to admin");
+    console.log(`✅ Support email sent to ${ADMIN_EMAIL}`);
     return result;
   } catch (error) {
     console.error("❌ Support Email Error");

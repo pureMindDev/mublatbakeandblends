@@ -17,12 +17,15 @@ const REQUIRED = [
   "JWT_SECRET",
   "BREVO_API_KEY",
   "BREVO_FROM_EMAIL",
-  "ADMIN_EMAIL",
 ];
 
 // Not strictly required to boot, but silently degrade features if missing —
-// warned about rather than fatal.
+// warned about rather than fatal. ADMIN_EMAIL lives here (not in REQUIRED)
+// because utils/constants.js falls back to mublatbakeandblends@gmail.com
+// when it's unset — so the app still works, but it's worth knowing whether
+// that fallback is the one actually in use.
 const RECOMMENDED = [
+  "ADMIN_EMAIL",
   "BREVO_FROM_NAME",
   "CLIENT_URL",
   "CLOUDINARY_CLOUD_NAME",
@@ -52,12 +55,15 @@ function validateEnv() {
   }
 
   // Specific sanity check for the exact symptom reported: admin order
-  // notifications not arriving. This doesn't verify deliverability (that
-  // depends on the sender being verified in Brevo), only that the variable
-  // is actually set to something.
-  if (process.env.ADMIN_EMAIL) {
-    console.log(`✅ Admin order notifications will be sent to: ${process.env.ADMIN_EMAIL}`);
-  }
+  // notifications not arriving. ADMIN_EMAIL (utils/constants.js) always
+  // resolves to something — either the env var or the built-in fallback —
+  // so this always prints, telling you at a glance which one is active.
+  const { ADMIN_EMAIL } = require("../utils/constants");
+  const usingFallback = !process.env.ADMIN_EMAIL || process.env.ADMIN_EMAIL.trim() === "";
+  console.log(
+    `✅ Admin order notifications will be sent to: ${ADMIN_EMAIL}` +
+    (usingFallback ? " (ADMIN_EMAIL env var not set — using built-in fallback)" : "")
+  );
 
   console.log("✅ Environment variables validated");
 }
