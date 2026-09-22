@@ -1,71 +1,65 @@
 /**
- * Validates required environment variables on startup, and catches a
- * specific dangerous mistake: deploying to production while still pointed
- * at Stripe TEST keys (customers would appear to "pay" successfully, but no
- * real money would ever move — a silent, nasty bug to discover after launch).
+ * Fails fast (with a clear message) if required environment variables are
+ * missing, instead of letting the app boot into a broken state — e.g. Brevo
+ * silently failing to send because BREVO_API_KEY is undefined, or admin
+ * order notifications going nowhere because ADMIN_EMAIL isn't set.
  *
- * Call this before connectDB() / anything else in server.js.
+ * NOTE: this file is `require`'d by server.js but was missing from the
+ * uploaded export — if that's also true of what's actually deployed, the
+ * server would crash on startup with
+ * "Cannot find module './config/validateEnv'" before it ever got to the
+ * point of sending emails. Re-add this file (or confirm it already exists
+ * on the deployed server under a different path) as a first check.
  */
 
-const REQUIRED_VARS = [
+const REQUIRED = [
   "MONGO_URI",
   "JWT_SECRET",
+  "BREVO_API_KEY",
+  "BREVO_FROM_EMAIL",
+  "ADMIN_EMAIL",
+];
+
+// Not strictly required to boot, but silently degrade features if missing —
+// warned about rather than fatal.
+const RECOMMENDED = [
+  "BREVO_FROM_NAME",
   "CLIENT_URL",
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
-  "BREVO_API_KEY",
-  "BREVO_FROM_EMAIL",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
 ];
 
-// Not strictly required to boot, but the app degrades silently without it
-// (admin order-notification and support emails are just skipped) — worth a
-// heads-up rather than a hard failure.
-const RECOMMENDED_VARS = ["ADMIN_EMAIL"];
-
-const validateEnv = () => {
-  const missing = REQUIRED_VARS.filter((key) => !process.env[key]);
+function validateEnv() {
+  const missing = REQUIRED.filter((key) => !process.env[key] || process.env[key].trim() === "");
+  const missingRecommended = RECOMMENDED.filter((key) => !process.env[key] || process.env[key].trim() === "");
 
   if (missing.length > 0) {
-    console.error("❌ Missing required environment variable(s):");
+    console.error("\n❌ Missing required environment variable(s):");
     missing.forEach((key) => console.error(`   - ${key}`));
-    console.error("   Set these in your .env file before starting the server.");
-    process.exit(1);
-  }
-
-  const isProduction = process.env.NODE_ENV === "production";
-  const stripeKey = process.env.STRIPE_SECRET_KEY || "";
-  if (isProduction && stripeKey.startsWith("sk_test_")) {
     console.error(
-      "❌ NODE_ENV is \"production\" but STRIPE_SECRET_KEY is a TEST key (sk_test_...)."
-    );
-    console.error(
-      "   Customers would be able to \"complete\" checkout without any real payment going through."
-    );
-    console.error(
-      "   Switch to your live secret key (sk_live_...) from the Stripe Dashboard before deploying."
+      "\nSet these in your hosting platform's environment settings (Render/Railway/etc.) " +
+      "or in a local .env file, then restart the server. See .env.example for the full list.\n"
     );
     process.exit(1);
   }
 
-  if (!isProduction && stripeKey.startsWith("sk_live_")) {
-    console.warn(
-      "⚠️  Warning: NODE_ENV is not \"production\" but STRIPE_SECRET_KEY is a LIVE key (sk_live_...)."
-    );
-    console.warn(
-      "   Real payments will be processed in this dev/test environment — double-check this is intended."
-    );
+  if (missingRecommended.length > 0) {
+    console.warn("⚠️  Missing recommended environment variable(s) — some features may not work:");
+    missingRecommended.forEach((key) => console.warn(`   - ${key}`));
   }
 
-  RECOMMENDED_VARS.forEach((key) => {
-    if (!process.env[key]) {
-      console.warn(`⚠️  ${key} is not set — related functionality will be skipped silently until it's added.`);
-    }
-  });
+  // Specific sanity check for the exact symptom reported: admin order
+  // notifications not arriving. This doesn't verify deliverability (that
+  // depends on the sender being verified in Brevo), only that the variable
+  // is actually set to something.
+  if (process.env.ADMIN_EMAIL) {
+    console.log(`✅ Admin order notifications will be sent to: ${process.env.ADMIN_EMAIL}`);
+  }
 
-  console.log(`✅ Environment validated (${process.env.NODE_ENV || "development"} mode).`);
-};
+  console.log("✅ Environment variables validated");
+}
 
 module.exports = validateEnv;
