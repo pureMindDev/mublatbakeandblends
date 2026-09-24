@@ -62,7 +62,7 @@ const footerBlock = `
       📍 33 College Garden, BT35 6DR
     </p>
     <p style="margin:0 0 18px; color:#aaaaaa; font-size:13px; font-family:Arial,sans-serif;">
-      📞 +44 7700 000000
+      📞 +44 7587 911097
     </p>
     <div style="width:40px;height:1px;background:#333;margin:0 auto 14px;"></div>
     <p style="margin:0; color:#555555; font-size:12px; font-family:Arial,sans-serif;">
@@ -1014,7 +1014,7 @@ const buildSupportHtml = ({ name, email, topic, message }) => `
     <tr>
       <td style="background:#111;padding:28px 40px;text-align:center;border-top:3px solid #d4af37;">
         <p style="margin:0 0 4px;color:#d4af37;font-family:Georgia,serif;font-size:14px;">Mublat Bake &amp; Blends</p>
-        <p style="margin:0 0 4px;color:#aaa;font-size:12px;">📍 33 College Garden, BT35 6DR &nbsp;·&nbsp; 📞 +44 7700 000000</p>
+        <p style="margin:0 0 4px;color:#aaa;font-size:12px;">📍 33 College Garden, BT35 6DR &nbsp;·&nbsp; 📞 +44 7587 911097</p>
         <p style="margin:8px 0 0;color:#555;font-size:11px;">© ${new Date().getFullYear()} Mublat Bake &amp; Blends · All rights reserved</p>
       </td>
     </tr>
