@@ -17,17 +17,19 @@ const trackOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   const normalised  = orderId.trim().toUpperCase();
 
-  // Current format is "MUB-0001"; "ORD-XXXXXX" is the legacy format for
-  // orders created before the order-numbering change. Support bare numbers
-  // (just digits) defaulting to the current MUB- prefix, plus both full
-  // prefixed forms as typed.
+  // Current format is "ORD-0001"; "MUB-0001" is the legacy format used for
+  // orders created before the order-numbering change (orders and products
+  // used to share the MUB- prefix). Support bare numbers (just digits)
+  // defaulting to the current ORD- prefix, plus both full prefixed forms
+  // (padded and as-typed) so old MUB- orders can still be tracked.
   const candidates = new Set([normalised]);
   if (/^\d+$/.test(normalised)) {
+    candidates.add(`ORD-${normalised.padStart(4, "0")}`);
     candidates.add(`MUB-${normalised.padStart(4, "0")}`);
   }
   if (!normalised.includes("-")) {
-    candidates.add(`MUB-${normalised}`);
     candidates.add(`ORD-${normalised}`);
+    candidates.add(`MUB-${normalised}`);
   }
 
   // Also support direct MongoDB _id lookup as fallback

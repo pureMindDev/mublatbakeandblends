@@ -60,7 +60,7 @@ const orderSchema = new mongoose.Schema(
     },
 
     // Fix #1: Store a real orderId field so tracking doesn't need to scan 500 docs
-    // Format: ORD-XXXXXX (6 hex chars = 16^6 = ~16 million unique values)
+    // Format: ORD-0001, ORD-0002, ... (see the pre-save hook below)
     orderId: {
       type: String,
       unique: true,
@@ -75,17 +75,26 @@ const orderSchema = new mongoose.Schema(
 );
 
 // Auto-generate a sequential orderId before saving if not already set.
-// Format: MUB-0001, MUB-0002, ... via an atomic counter document, so two
+// Format: ORD-0001, ORD-0002, ... via an atomic counter document, so two
 // checkouts happening at the same instant can never collide on the same number.
+//
+// Uses its own counter document ("orderNumberOrd"), completely separate from
+// the product SKU counter ("productSku" in Product.js) — the two sequences
+// have always been independent. It's also a NEW counter rather than reusing
+// the old "orderNumber" counter (which had already reached MUB-0008/0009 and
+// beyond), so the first order created under this format starts fresh at
+// ORD-0001 instead of continuing the old MUB- sequence as ORD-0010 etc.
+// Existing orders already stored as MUB-XXXX are untouched by this change —
+// they keep their existing orderId; only newly created orders get ORD-XXXX.
 // NOTE: Mongoose 9 deprecated callback-style hooks — use async instead
 orderSchema.pre("save", async function () {
   if (!this.orderId) {
     const counter = await Counter.findOneAndUpdate(
-      { _id: "orderNumber" },
+      { _id: "orderNumberOrd" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-    this.orderId = "MUB-" + String(counter.seq).padStart(4, "0");
+    this.orderId = "ORD-" + String(counter.seq).padStart(4, "0");
   }
 
   // Keep the legacy isPaid/paidAt fields in sync with paymentStatus so any
