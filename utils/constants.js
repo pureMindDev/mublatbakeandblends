@@ -10,7 +10,7 @@ const PRODUCT_CATEGORIES = ["Pastries", "Drinks", "Other"];
 
 const DELIVERY_METHODS = ["Delivery", "Pickup"];
 
-const DELIVERY_FEE = 3.50;
+// Delivery pricing lives in utils/delivery.js (single source of truth).
 
 // Payment confirmation state — only an admin can move an order from
 // "Pending" to "Paid" (see order.controller.updateOrderPayment).
@@ -44,7 +44,6 @@ module.exports = {
   ORDER_STATUSES,
   PRODUCT_CATEGORIES,
   DELIVERY_METHODS,
-  DELIVERY_FEE,
   MAX_IMAGES_PER_PRODUCT,
   IMAGE_ALLOWED_FORMATS,
   IMAGE_MAX_SIZE_MB,

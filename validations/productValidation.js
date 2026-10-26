@@ -37,6 +37,9 @@ const productValidation = [
   body("options.*.price")
     .isFloat({ min: 0 }).withMessage("Each option price must be a non-negative number"),
 
+  body("options.*.units").optional()
+    .isInt({ min: 1, max: 500 }).withMessage("Option units must be a whole number from 1 to 500"),
+
   handleValidationErrors,
 ];
 
@@ -61,6 +64,9 @@ const updateProductValidation = [
 
   body("options.*.price").optional()
     .isFloat({ min: 0 }).withMessage("Each option price must be a non-negative number"),
+
+  body("options.*.units").optional()
+    .isInt({ min: 1, max: 500 }).withMessage("Option units must be a whole number from 1 to 500"),
 
   handleValidationErrors,
 ];

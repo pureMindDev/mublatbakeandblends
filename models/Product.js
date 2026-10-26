@@ -13,6 +13,16 @@ const optionSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  // How many pieces (pastries) or bottles (drinks) one unit of this option
+  // contains, e.g. "Trio Collection" = 3, "Grand Dozen" = 12. Used ONLY for
+  // the delivery-charge quantity limits. Defaults to 1.
+  units: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 500,
+    validate: { validator: Number.isInteger, message: "units must be a whole number" },
+  },
 });
 
 const productSchema = new mongoose.Schema(

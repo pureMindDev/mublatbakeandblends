@@ -39,7 +39,7 @@ const trackOrder = asyncHandler(async (req, res) => {
       ...(orderId.match(/^[a-f\d]{24}$/i) ? [{ _id: orderId }] : []),
     ],
   }).select(
-    "customerName phone method address items totalAmount deliveryFee status " +
+    "customerName phone method address items totalAmount deliveryFee deliveryTier subtotal status " +
     "paymentMethod paymentStatus createdAt orderId"
   );
 
@@ -58,6 +58,8 @@ const trackOrder = asyncHandler(async (req, res) => {
       items:         order.items,
       totalAmount:   order.totalAmount,
       deliveryFee:   order.deliveryFee,
+      deliveryTier:  order.deliveryTier,
+      subtotal:      order.subtotal,
       status:        order.status,
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,

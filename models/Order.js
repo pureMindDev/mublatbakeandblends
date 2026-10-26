@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const Counter = require("./Counter");
-const { ORDER_STATUSES, DELIVERY_METHODS, PAYMENT_STATUSES } = require("../utils/constants");
+const { ORDER_STATUSES, DELIVERY_METHODS, PAYMENT_STATUSES, PRODUCT_CATEGORIES } = require("../utils/constants");
 
 const orderItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
@@ -8,6 +8,9 @@ const orderItemSchema = new mongoose.Schema({
   optionName: { type: String, default: "Standard" },
   quantity: { type: Number, required: true, min: 1 },
   price: { type: Number, required: true, min: 0 },
+  // Snapshot at order time (absent on orders placed before delivery tiers).
+  category: { type: String, enum: PRODUCT_CATEGORIES },
+  units: { type: Number, min: 1 },
 });
 
 const orderSchema = new mongoose.Schema(
@@ -51,6 +54,15 @@ const orderSchema = new mongoose.Schema(
     },
 
     deliveryFee: { type: Number, default: 0, min: 0 },
+
+    // Delivery-tier snapshot. Deliberately NO defaults: orders placed before the
+    // tiered policy don't have these fields and must keep their original
+    // amounts untouched (their deliveryFee/totalAmount above are the record).
+    subtotal: { type: Number, min: 0 },
+    deliveryTier: { type: String, enum: ["none", "pickup", "standard", "large"] },
+    pastryUnits: { type: Number, min: 0 },
+    drinkUnits: { type: Number, min: 0 },
+
     totalAmount: { type: Number, required: [true, "Total amount is required"], min: 0 },
 
     status: {

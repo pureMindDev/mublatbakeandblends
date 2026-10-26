@@ -1,6 +1,8 @@
 const Order        = require("../models/Order");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError     = require("../utils/ApiError");
+const { priceOrder }        = require("../services/pricingService");
+const { calculateDelivery, toCount } = require("../utils/delivery");
 const {
   sendOrderConfirmation,
   sendAdminNotification,
@@ -16,22 +18,39 @@ const {
  * paymentStatus/isPaid/orderId/status directly and mark their own order
  * paid, forge the order number, etc. Payment can only ever be confirmed by
  * an admin via PATCH /api/orders/:id/payment (see updateOrderPayment below).
+ *
+ * PRICING: the customer only says which product/option and how many. Item
+ * prices, the delivery fee and the total are recalculated here from the
+ * database (see services/pricingService.js); any price, deliveryFee or
+ * totalAmount in the request body is ignored.
  */
 const createOrder = asyncHandler(async (req, res) => {
   const {
-    customerName, email, phone, address, method,
-    deliveryFee, items, totalAmount, status,
+    customerName, email, phone, address, method, items, status,
   } = req.body;
+
+  const isAdmin = req.user?.role === "admin";
+
+  let pricing;
+  if (isAdmin && Array.isArray(items) && items.length > 0 && items.every((i) => i.manual === true)) {
+    pricing = priceManualOrder(items, method, req.body);
+  } else {
+    pricing = await priceOrder(items, method);
+  }
 
   const orderData = {
     customerName,
     email: email || "",
     phone,
-    address: address || "",
+    address: method === "Delivery" ? (address || "") : "",
     method,
-    deliveryFee: Number(deliveryFee || 0),
-    items,
-    totalAmount,
+    items: pricing.items,
+    subtotal: pricing.subtotal,
+    deliveryFee: pricing.deliveryFee,
+    deliveryTier: pricing.deliveryTier,
+    pastryUnits: pricing.pastryUnits,
+    drinkUnits: pricing.drinkUnits,
+    totalAmount: pricing.totalAmount,
     // paymentMethod, paymentStatus, isPaid, paidAt, orderId are NEVER taken
     // from the request body — they're schema defaults / server-generated.
     // Payment can only move to "Paid" via the admin-only updateOrderPayment
@@ -42,7 +61,7 @@ const createOrder = asyncHandler(async (req, res) => {
   // this request comes from an authenticated admin — e.g. the "Create
   // Order" modal in the dashboard for phone/walk-in orders. A public
   // checkout request always starts as the schema default ("Pending").
-  if (req.user?.role === "admin" && status) {
+  if (isAdmin && status) {
     orderData.status = status;
   }
 
@@ -62,6 +81,64 @@ const createOrder = asyncHandler(async (req, res) => {
     order,
   });
 });
+
+/*
+ * POST /api/orders/quote — public.
+ * Returns the authoritative subtotal / delivery charge / total for a basket
+ * so the cart and checkout show exactly what createOrder will save.
+ * Nothing is stored.
+ */
+const quoteOrder = asyncHandler(async (req, res) => {
+  const { items, method } = req.body;
+  const pricing = await priceOrder(items, method);
+
+  res.json({
+    type: "success",
+    quote: {
+      items: pricing.items.map((i) => ({
+        product: i.product, optionName: i.optionName, name: i.name,
+        quantity: i.quantity, price: i.price,
+      })),
+      subtotal: pricing.subtotal,
+      pastryUnits: pricing.pastryUnits,
+      drinkUnits: pricing.drinkUnits,
+      deliveryFee: pricing.deliveryFee,
+      deliveryTier: pricing.deliveryTier,
+      totalAmount: pricing.totalAmount,
+    },
+  });
+});
+
+/*
+ * Admin-only phone / walk-in orders typed in by hand (free-text item with a
+ * price). The admin states how many pastry pieces / drink bottles it
+ * contains so the SAME delivery rules apply; the fee is still computed here.
+ */
+function priceManualOrder(items, method, body) {
+  const items2 = items.map((i) => {
+    const price = Number(i.price);
+    const quantity = Number(i.quantity);
+    if (!i.name || !String(i.name).trim()) throw ApiError.badRequest("Item description is required");
+    if (!Number.isFinite(price) || price < 0) throw ApiError.badRequest("Item price is invalid");
+    if (!Number.isInteger(quantity) || quantity < 1) throw ApiError.badRequest("Item quantity is invalid");
+    return { name: String(i.name).trim(), optionName: i.optionName || "Standard", quantity, price };
+  });
+
+  const pastryUnits = toCount(body.pastryCount);
+  const drinkUnits = toCount(body.drinkCount);
+  const subtotalPence = items2.reduce((t, i) => t + Math.round(i.price * 100) * i.quantity, 0);
+  const delivery = calculateDelivery({ method, pastryCount: pastryUnits, drinkCount: drinkUnits });
+
+  return {
+    items: items2,
+    subtotal: subtotalPence / 100,
+    pastryUnits,
+    drinkUnits,
+    deliveryFee: delivery.fee,
+    deliveryTier: delivery.tier,
+    totalAmount: (subtotalPence + Math.round(delivery.fee * 100)) / 100,
+  };
+}
 
 /* GET /api/orders?page=1&limit=10&status=Pending&search=ORD */
 const getOrders = asyncHandler(async (req, res) => {
@@ -230,7 +307,7 @@ const updateOrderPayment = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  createOrder, getOrders, getOrderStats,
+  createOrder, quoteOrder, getOrders, getOrderStats,
   getOrder, updateOrderStatus, updateOrder, deleteOrder,
   updateOrderPayment,
 };

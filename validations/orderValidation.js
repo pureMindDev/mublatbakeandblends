@@ -33,19 +33,22 @@ const orderValidation = [
   body("items")
     .isArray({ min: 1 }).withMessage("Order must contain at least one item"),
 
-  body("items.*.name")
-    .trim()
-    .notEmpty().withMessage("Each item must have a name"),
-
+  // Prices and totals are NOT validated because they are NOT trusted: the
+  // server recalculates them (see services/pricingService.js).
   body("items.*.quantity")
-    .isInt({ min: 1 }).withMessage("Item quantity must be at least 1"),
+    .isInt({ min: 1, max: 100 }).withMessage("Item quantity must be a whole number from 1 to 100"),
 
-  body("items.*.price")
-    .isFloat({ min: 0 }).withMessage("Item price must be a non-negative number"),
+  handleValidationErrors,
+];
 
-  body("totalAmount")
-    .isFloat({ min: 0 }).withMessage("Total amount must be a non-negative number"),
-
+// Public price preview used by the cart and checkout.
+const quoteValidation = [
+  body("method")
+    .isIn(["Delivery", "Pickup"]).withMessage("Method must be Delivery or Pickup"),
+  body("items")
+    .isArray({ min: 1, max: 50 }).withMessage("Basket must contain at least one item"),
+  body("items.*.quantity")
+    .isInt({ min: 1, max: 100 }).withMessage("Item quantity must be a whole number from 1 to 100"),
   handleValidationErrors,
 ];
 
@@ -65,4 +68,4 @@ const updatePaymentValidation = [
   handleValidationErrors,
 ];
 
-module.exports = { orderValidation, updateStatusValidation, updatePaymentValidation };
+module.exports = { orderValidation, quoteValidation, updateStatusValidation, updatePaymentValidation };

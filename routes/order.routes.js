@@ -2,7 +2,7 @@ const express = require("express");
 const router  = express.Router();
 
 const {
-  createOrder, getOrders, getOrderStats,
+  createOrder, quoteOrder, getOrders, getOrderStats,
   getOrder, updateOrderStatus, updateOrder, deleteOrder,
   updateOrderPayment,
 } = require("../controllers/order.controller");
@@ -14,6 +14,7 @@ const adminOnly    = require("../middlewares/adminMiddleware");
 const optionalAuth = require("../middlewares/optionalAuth.middleware");
 const {
   orderValidation,
+  quoteValidation,
   updateStatusValidation,
   updatePaymentValidation,
 } = require("../validations/orderValidation");
@@ -24,6 +25,9 @@ const {
  * and the admin's chosen fulfillment status is respected. Anonymous
  * checkout requests are unaffected — see createOrder for what's allowed. */
 router.post("/",              optionalAuth, orderValidation, createOrder);
+
+/* Public price preview — same calculation createOrder uses, nothing saved */
+router.post("/quote",         quoteValidation, quoteOrder);
 
 /* Public order tracking — must be before /:id so it matches first */
 router.get("/track/:orderId", trackOrder);

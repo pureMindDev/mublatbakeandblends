@@ -2,6 +2,7 @@ const stripe       = require("../config/stripe");
 const Order        = require("../models/Order");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError     = require("../utils/ApiError");
+const { priceOrder } = require("../services/pricingService");
 const {
   sendOrderConfirmation,
   sendAdminNotification,
@@ -20,15 +21,12 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
     throw ApiError.internal("Stripe is not configured.");
   }
 
-  const { items, customerName, email, phone, address, method, deliveryFee } =
-    req.body;
+  const { items, customerName, email, phone, address, method } = req.body;
 
-  if (!items || items.length === 0) {
-    throw ApiError.badRequest("No items in cart");
-  }
-
-  const itemsTotal  = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const totalAmount = itemsTotal + Number(deliveryFee || 0);
+  // Prices, delivery fee and total are recalculated server-side — never
+  // trusted from the client (same rules as POST /api/orders).
+  const pricing = await priceOrder(items, method);
+  const totalAmount = pricing.totalAmount;
   const amountPence = Math.round(totalAmount * 100);
 
   // 1. Save pending order so we have an ID
@@ -38,13 +36,12 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
     phone,
     address:     address || "",
     method,
-    deliveryFee: Number(deliveryFee || 0),
-    items: items.map((i) => ({
-      name:       i.name,
-      optionName: i.optionName || "Standard",
-      quantity:   i.quantity,
-      price:      i.price,
-    })),
+    items:        pricing.items,
+    subtotal:     pricing.subtotal,
+    deliveryFee:  pricing.deliveryFee,
+    deliveryTier: pricing.deliveryTier,
+    pastryUnits:  pricing.pastryUnits,
+    drinkUnits:   pricing.drinkUnits,
     totalAmount,
     status: "Pending",
     isPaid: false,

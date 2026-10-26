@@ -19,9 +19,11 @@ const orderRoutes = require("./routes/order.routes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 // Safe-load new routes so a missing file doesn't crash the whole server
-let supportRoutes, reviewRoutes;
+let supportRoutes, reviewRoutes, videoReviewRoutes;
 try { supportRoutes = require("./routes/support.routes"); } catch (e) { console.warn("support.routes.js not found — skipping"); }
 try { reviewRoutes = require("./routes/review.routes"); } catch (e) { console.warn("review.routes.js not found — skipping"); }
+
+try { videoReviewRoutes = require("./routes/videoReview.routes"); } catch (e) { console.warn("videoReview.routes.js failed to load:", e.message); }
 
 /* Middleware imports */
 const notFound = require("./middlewares/notFoundMiddleware");
@@ -104,6 +106,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/upload", uploadRoutes);
 if (supportRoutes) app.use("/api/support", supportRoutes);
 if (reviewRoutes) app.use("/api/reviews", reviewRoutes);
+if (videoReviewRoutes) app.use("/api/video-reviews", videoReviewRoutes);
 
 /* ── 404 handler — must be after all routes ── */
 app.use(notFound);
