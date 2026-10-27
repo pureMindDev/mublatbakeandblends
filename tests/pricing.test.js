@@ -67,3 +67,36 @@ test("pennies stay exact", () => {
   assert.equal(r.subtotal, 19.5);
   assert.equal(r.totalAmount, 27.49);
 });
+
+// ---- Pack-size counting when `units` was never stored (legacy / seeded data) ----
+const legacy = new Map([
+  ["lp", P("lp", "Pastries", [{ label: "Single Pastry", price: 5.5 }, { label: "Trio Collection", price: 16.5 }, { label: "Grand Dozen (Box of 12)", price: 66 }, { label: "3 pieces", price: 15 }, { label: "12 pieces", price: 60 }])],
+  ["ld", P("ld", "Drinks",   [{ label: "Regular Cup", price: 6.5 }, { label: "Family Bottle", price: 18 }])],
+]);
+const lp = (lines, m = "Delivery") => priceLines(lines, legacy, m);
+
+test("pack counts: 1x3 = 3, 1x12 = 12, 2x12 = 24, 5x3 = 15 (units missing in DB)", () => {
+  assert.equal(lp([line("lp", "Trio Collection", 1)]).pastryUnits, 3);
+  assert.equal(lp([line("lp", "Grand Dozen (Box of 12)", 1)]).pastryUnits, 12);
+  assert.equal(lp([line("lp", "Grand Dozen (Box of 12)", 2)]).pastryUnits, 24);
+  assert.equal(lp([line("lp", "Trio Collection", 5)]).pastryUnits, 15);
+  assert.equal(lp([line("lp", "3 pieces", 3)]).pastryUnits, 9);
+  assert.equal(lp([line("lp", "12 pieces", 2)]).pastryUnits, 24);
+  assert.equal(lp([line("lp", "Single Pastry", 4)]).pastryUnits, 4);
+});
+
+test("pack sizes are not counted twice and money is unaffected", () => {
+  const r = lp([line("lp", "Grand Dozen (Box of 12)", 2)]);
+  assert.equal(r.subtotal, 132);              // 2 x 66, not 24 x 66
+  assert.equal(r.items[0].quantity, 2);
+  assert.equal(r.items[0].units, 12);
+});
+
+test("mixed basket: 24 pastries + 7 bottles = large; 24 + 6 = standard; 31 pastries = large", () => {
+  assert.equal(lp([line("lp", "Grand Dozen (Box of 12)", 2), line("ld", "Regular Cup", 7)]).deliveryTier, "large");
+  const ok = lp([line("lp", "Grand Dozen (Box of 12)", 2), line("ld", "Regular Cup", 6)]);
+  assert.equal(ok.deliveryTier, "standard");
+  assert.equal(ok.drinkUnits, 6);
+  assert.equal(lp([line("lp", "Grand Dozen (Box of 12)", 2), line("lp", "Trio Collection", 2), line("lp", "Single Pastry", 1)]).deliveryTier, "large"); // 31
+  assert.equal(lp([line("lp", "Grand Dozen (Box of 12)", 1), line("lp", "Trio Collection", 6)]).pastryUnits, 30);
+});

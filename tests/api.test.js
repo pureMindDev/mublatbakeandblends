@@ -13,10 +13,13 @@ const Product = require("../models/Product");
 const Order = require("../models/Order");
 
 const id = () => new mongoose.Types.ObjectId();
-const PIE = id(), ZOBO = id(), OFF = id();
+const PIE = id(), ZOBO = id(), OFF = id(), LEG = id(), LEGD = id();
 const catalog = [
   { _id: PIE,  name: "Meat Pie",  category: "Pastries", active: true,  options: [{ label: "Single Pastry", price: 5.5, units: 1 }, { label: "Grand Dozen", price: 66, units: 12 }] },
   { _id: ZOBO, name: "Zobo",      category: "Drinks",   active: true,  options: [{ label: "Bottle", price: 6.5, units: 1 }] },
+  // Legacy products: `units` was never stored, pack size is only in the label
+  { _id: LEG,  name: "Legacy Pie", category: "Pastries", active: true, options: [{ label: "Trio Collection", price: 16.5 }, { label: "Grand Dozen (Box of 12)", price: 66 }, { label: "3 pieces", price: 15 }, { label: "12 pieces", price: 60 }] },
+  { _id: LEGD, name: "Legacy Drink", category: "Drinks", active: true, options: [{ label: "Regular Cup", price: 6.5 }] },
   { _id: OFF,  name: "Retired",   category: "Pastries", active: false, options: [{ label: "Single Pastry", price: 1, units: 1 }] },
 ];
 Product.find = async (q) => catalog.filter((p) => q._id.$in.map(String).includes(String(p._id)));
@@ -137,4 +140,44 @@ test("manual admin order path uses the same thresholds (service-level)", () => {
   assert.equal(calculateDelivery({ method: "Delivery", pastryCount: 30, drinkCount: 0 }).fee, 7.99);
   assert.equal(calculateDelivery({ method: "Delivery", pastryCount: 31, drinkCount: 0 }).fee, 9.99);
   assert.equal(calculateDelivery({ method: "Delivery", pastryCount: 0, drinkCount: 7 }).fee, 9.99);
+});
+
+// ---- Pack sizes end to end (quote + saved order) when `units` is missing ----
+const { DELIVERY_RULES } = require("../utils/delivery");
+const leg = (n, opt) => ({ product: String(LEG), optionName: opt, quantity: n });
+const legd = (n) => ({ product: String(LEGD), optionName: "Regular Cup", quantity: n });
+const quote = (items) => post("/quote", { method: "Delivery", items }).then((r) => r.body.quote);
+
+test("quote counts real pieces: 1x3=3, 1x12=12, 2x12=24, 5x3=15, 3x3=9", async () => {
+  assert.equal((await quote([leg(1, "Trio Collection")])).pastryUnits, 3);
+  assert.equal((await quote([leg(1, "Grand Dozen (Box of 12)")])).pastryUnits, 12);
+  assert.equal((await quote([leg(2, "Grand Dozen (Box of 12)")])).pastryUnits, 24);
+  assert.equal((await quote([leg(5, "Trio Collection")])).pastryUnits, 15);
+  assert.equal((await quote([leg(3, "3 pieces")])).pastryUnits, 9);
+  assert.equal((await quote([leg(2, "12 pieces")])).pastryUnits, 24);
+});
+
+test("pack sizes drive the fee at the real threshold, money counted once", async () => {
+  const max = DELIVERY_RULES.maxPastriesStandard;                  // 30
+  const atLimit = await quote([leg(max / 3, "Trio Collection")]);
+  assert.equal(atLimit.pastryUnits, max);
+  assert.equal(atLimit.deliveryTier, "standard");
+  const over = await quote([leg(max / 3, "Trio Collection"), leg(1, "3 pieces")]);
+  assert.equal(over.pastryUnits, max + 3);
+  assert.equal(over.deliveryTier, "large");
+  const two = await quote([leg(2, "Grand Dozen (Box of 12)")]);
+  assert.equal(two.subtotal, 132);                                 // 2 x £66, not 24 x £66
+  const mixed = await quote([leg(1, "Grand Dozen (Box of 12)"), legd(DELIVERY_RULES.maxDrinksStandard + 1)]);
+  assert.equal(mixed.deliveryTier, "large");                       // drinks alone trigger it
+  assert.equal(mixed.deliveryFee, 9.99);
+});
+
+test("saved order stores real pieces and per-line pack size", async () => {
+  const r = await post("/", { ...customer, items: [leg(2, "Grand Dozen (Box of 12)"), legd(2)] });
+  assert.equal(r.status, 201);
+  assert.equal(saved.pastryUnits, 24);
+  assert.equal(saved.drinkUnits, 2);
+  assert.equal(saved.items[0].units, 12);
+  assert.equal(saved.items[0].quantity, 2);
+  assert.equal(saved.subtotal, 132 + 13);
 });

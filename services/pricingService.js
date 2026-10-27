@@ -8,7 +8,7 @@
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const ApiError = require("../utils/ApiError");
-const { calculateDelivery, toCount } = require("../utils/delivery");
+const { calculateDelivery, optionUnits } = require("../utils/delivery");
 
 const MAX_LINE_QUANTITY = 100;
 const MAX_LINES = 50;
@@ -58,7 +58,7 @@ function priceLines(lines, productsById, method) {
       );
     }
 
-    const units = Math.max(1, toCount(option.units) || 1);
+    const units = optionUnits(option, product.category);
     const pieces = qty * units;
 
     if (product.category === "Pastries") pastryUnits += pieces;

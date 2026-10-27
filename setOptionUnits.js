@@ -15,6 +15,7 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 const Product = require("./models/Product");
+const { optionUnits } = require("./utils/delivery");
 
 const LABEL_UNITS = {
   "Single Pastry": 1,
@@ -35,7 +36,7 @@ const LABEL_UNITS = {
     let touched = false;
     const options = (p.options || []).map((o) => {
       if (o.units !== undefined) return o;
-      const units = LABEL_UNITS[o.label] ?? 1;
+      const units = LABEL_UNITS[o.label] ?? optionUnits({ label: o.label }, p.category);
       console.log(`${apply ? "SET" : "would set"}  ${p.name} / "${o.label}" -> units ${units}`);
       touched = true;
       changes++;

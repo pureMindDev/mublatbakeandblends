@@ -24,6 +24,26 @@ const toCount = (n) => {
 };
 
 /**
+ * Pieces/bottles one unit of an option contains.
+ * Uses the stored `units` when it is > 1. Because `units` defaults to 1 (and
+ * products created before it existed never had it), a pack option whose LABEL
+ * states its size ("Trio Collection", "Box of 12", "6 pieces") would otherwise
+ * count as 1 piece. In that case the size is read from the label.
+ */
+const optionUnits = (option, category) => {
+  const stored = toCount(option && option.units);
+  if (stored > 1) return stored;
+  if (category !== "Pastries" && category !== "Drinks") return Math.max(1, stored);
+  const label = String((option && (option.label || option.name)) || "").toLowerCase();
+  let m = label.match(/(?:box|pack|set|tray)\s+of\s+(\d+)/) || label.match(/(\d+)\s*[- ]?\s*(?:pieces?|pcs|pc|pack|box|bottles?)\b/);
+  if (m) { const n = toCount(m[1]); if (n > 0 && n <= 500) return n; }
+  if (/half[\s-]*dozen/.test(label)) return 6;
+  if (/dozen/.test(label)) return 12;
+  if (/trio/.test(label)) return 3;
+  return Math.max(1, stored);
+};
+
+/**
  * @param {object}  p
  * @param {string}  p.method        "Delivery" | "Pickup" (case-insensitive)
  * @param {number}  p.pastryCount   total pastry pieces in the basket
@@ -49,4 +69,4 @@ function calculateDelivery({ method, pastryCount, drinkCount, hasItems = true })
     : { fee: DELIVERY_RULES.standardFee, tier: "standard" };
 }
 
-module.exports = { DELIVERY_RULES, calculateDelivery, toCount };
+module.exports = { DELIVERY_RULES, calculateDelivery, toCount, optionUnits };
