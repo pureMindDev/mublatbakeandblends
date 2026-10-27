@@ -19,26 +19,32 @@ test("server uses DB prices, never client prices", () => {
   assert.equal(r.totalAmount, 18.99);
 });
 
-test("pack sizes count as pieces: 1 dozen + 1 trio = 15 (standard), +1 single = 16 (large)", () => {
-  assert.equal(price([line("pie", "Dozen", 1), line("pie", "Trio", 1)]).deliveryTier, "standard");
-  const r = price([line("pie", "Dozen", 1), line("pie", "Trio", 1), line("pie", "Single", 1)]);
-  assert.equal(r.pastryUnits, 16);
-  assert.equal(r.deliveryTier, "large");
-  assert.equal(r.deliveryFee, 9.99);
+test("pack sizes count as pieces: 2 dozen + 1 trio + 3 singles = 30 (standard), +1 = 31 (large)", () => {
+  const r30 = price([line("pie", "Dozen", 2), line("pie", "Trio", 1), line("pie", "Single", 3)]);
+  assert.equal(r30.pastryUnits, 30);
+  assert.equal(r30.deliveryTier, "standard");
+  const r31 = price([line("pie", "Dozen", 2), line("pie", "Trio", 1), line("pie", "Single", 4)]);
+  assert.equal(r31.pastryUnits, 31);
+  assert.equal(r31.deliveryTier, "large");
+  assert.equal(r31.deliveryFee, 9.99);
 });
 
-test("mixed baskets from the brief", () => {
-  const mix = (pastries, drinks) => price([line("pie", "Single", pastries), ...(drinks ? [line("zobo", "Bottle", drinks)] : [])]);
-  assert.equal(mix(10, 4).deliveryFee, 7.99);
-  assert.equal(mix(15, 6).deliveryFee, 7.99);
-  assert.equal(mix(16, 2).deliveryFee, 9.99);
-  assert.equal(mix(5, 7).deliveryFee, 9.99);
-  assert.equal(mix(16, 7).deliveryFee, 9.99);
+test("mixed and single-category baskets", () => {
+  const mix = (pastries, drinks) => price([...(pastries ? [line("pie", "Single", pastries)] : []), ...(drinks ? [line("zobo", "Bottle", drinks)] : [])]);
+  assert.equal(mix(30, 0).deliveryFee, 7.99);
+  assert.equal(mix(31, 0).deliveryFee, 9.99);
+  assert.equal(mix(0, 6).deliveryFee, 7.99);
+  assert.equal(mix(0, 7).deliveryFee, 9.99);
+  assert.equal(mix(20, 4).deliveryFee, 7.99);
+  assert.equal(mix(30, 6).deliveryFee, 7.99);
+  assert.equal(mix(31, 2).deliveryFee, 9.99);
+  assert.equal(mix(10, 7).deliveryFee, 9.99);
+  assert.equal(mix(31, 7).deliveryFee, 9.99);
 });
 
 test("'Other' items don't count towards limits", () => {
-  const r = price([line("pie", "Single", 15), line("gift", "Card", 20)]);
-  assert.equal(r.pastryUnits, 15);
+  const r = price([line("pie", "Single", 30), line("gift", "Card", 20)]);
+  assert.equal(r.pastryUnits, 30);
   assert.equal(r.deliveryTier, "standard");
 });
 

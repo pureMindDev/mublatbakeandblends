@@ -2,8 +2,8 @@
  * Single source of truth (backend) for delivery charges.
  *
  * Client policy (Mublat Bakes & Blends — Delivery Charges):
- *   Standard £7.99  — up to 15 pastry pieces AND up to 6 drink bottles
- *   Large    £9.99  — more than 15 pastry pieces OR more than 6 drink bottles
+ *   Standard £7.99  — up to 30 pastry pieces AND up to 6 drink bottles
+ *   Large    £9.99  — more than 30 pastry pieces OR more than 6 drink bottles
  *
  * If both limits are exceeded the fee stays £9.99 (it is never added together).
  * The frontend keeps a mirror of this file at src/utils/delivery.js — if you
@@ -13,7 +13,7 @@
 const DELIVERY_RULES = Object.freeze({
   standardFee: 7.99,
   largeFee: 9.99,
-  maxPastriesStandard: 15,
+  maxPastriesStandard: 30,
   maxDrinksStandard: 6,
 });
 

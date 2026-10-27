@@ -33,7 +33,9 @@ const uploadToCloudinary = (buffer, options = {}) =>
       {
         folder:         "mublat/products",
         allowed_formats: IMAGE_ALLOWED_FORMATS,
-        transformation: [{ width: 800, height: 800, crop: "limit", quality: "auto" }],
+        // 1200px cap (was 800): product cards are shown ~340-380 CSS px wide, i.e. 700-1100 device
+        // pixels on phones, so an 800px original gets upscaled and looks soft.
+        transformation: [{ width: 1200, height: 1200, crop: "limit", quality: "auto" }],
         ...options,
       },
       (err, result) => {
