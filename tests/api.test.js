@@ -181,3 +181,84 @@ test("saved order stores real pieces and per-line pack size", async () => {
   assert.equal(saved.items[0].quantity, 2);
   assert.equal(saved.subtotal, 132 + 13);
 });
+
+// ---- Newry special delivery area, end to end ----
+const NEWRY = "12 Hill Street, Newry, BT35 6DR";
+const ELSEWHERE = "12 Hill Street, Belfast, BT1 1AA";
+const quoteAt = (items, address, method = "Delivery") =>
+  post("/quote", { method, address, items }).then((r) => r.body.quote);
+
+test("quote: Newry address = £3.50, counts unchanged", async () => {
+  const q = await quoteAt([leg(2, "Grand Dozen (Box of 12)"), legd(2)], NEWRY);
+  assert.equal(q.deliveryFee, 3.5);
+  assert.equal(q.deliveryTier, "newry");
+  assert.equal(q.pastryUnits, 24);
+  assert.equal(q.drinkUnits, 2);
+  assert.equal(q.totalAmount, 132 + 13 + 3.5);
+});
+
+test("quote: Newry stays £3.50 even for a 'large' basket (never £9.99, never summed)", async () => {
+  const q = await quoteAt([leg(4, "Grand Dozen (Box of 12)"), legd(10)], NEWRY);
+  assert.equal(q.pastryUnits, 48);
+  assert.equal(q.drinkUnits, 10);
+  assert.equal(q.deliveryFee, 3.5);
+});
+
+test("quote: outside Newry keeps £7.99 / £9.99", async () => {
+  assert.equal((await quoteAt([leg(1, "Trio Collection")], ELSEWHERE)).deliveryFee, 7.99);
+  assert.equal((await quoteAt([leg(1, "Trio Collection")], undefined)).deliveryFee, 7.99);
+  assert.equal((await quoteAt([leg(4, "Grand Dozen (Box of 12)")], ELSEWHERE)).deliveryFee, 9.99);   // 48 pastries
+  assert.equal((await quoteAt([legd(7)], ELSEWHERE)).deliveryFee, 9.99);                              // 7 bottles
+  assert.equal((await quoteAt([leg(1, "Trio Collection")], "Newry Road, Kilkeel, BT34 4AB")).deliveryFee, 7.99);
+  assert.equal((await quoteAt([leg(1, "Trio Collection")], "12 Hill St, Newry, E1 1AA")).deliveryFee, 7.99);
+});
+
+test("quote: pickup is free even with a Newry address", async () => {
+  const q = await quoteAt([leg(1, "Trio Collection")], NEWRY, "Pickup");
+  assert.equal(q.deliveryFee, 0);
+  assert.equal(q.deliveryTier, "pickup");
+});
+
+test("saved Newry order matches the quote; client-sent fee/total ignored", async () => {
+  const items = [leg(1, "Grand Dozen (Box of 12)"), legd(1)];
+  const q = await quoteAt(items, NEWRY);
+  const r = await post("/", { ...customer, address: NEWRY, items, deliveryFee: 0, totalAmount: 1, deliveryTier: "standard" });
+  assert.equal(r.status, 201);
+  assert.equal(saved.deliveryFee, 3.5);
+  assert.equal(saved.deliveryTier, "newry");
+  assert.equal(saved.totalAmount, q.totalAmount);
+  assert.equal(saved.address, NEWRY);
+  assert.equal(saved.pastryUnits, 12);
+  assert.equal(saved.drinkUnits, 1);
+});
+
+test("saved order outside Newry keeps the standard fee", async () => {
+  const r = await post("/", { ...customer, address: ELSEWHERE, items: [leg(1, "Grand Dozen (Box of 12)")] });
+  assert.equal(r.status, 201);
+  assert.equal(saved.deliveryFee, 7.99);
+  assert.equal(saved.deliveryTier, "standard");
+});
+
+test("saved pickup order with a Newry address is free and stores no address", async () => {
+  const r = await post("/", { ...customer, method: "Pickup", address: NEWRY, items: [leg(1, "Trio Collection")] });
+  assert.equal(r.status, 201);
+  assert.equal(saved.deliveryFee, 0);
+  assert.equal(saved.address, "");
+});
+
+test("admin manual order: Newry address gets £3.50, other address keeps the tier fee", async () => {
+  const { createOrder } = require("../controllers/order.controller");
+  const run = async (address, pastryCount) => {
+    saved = null;
+    const res = { status() { return this; }, json() { return this; } };
+    await createOrder(
+      { user: { role: "admin" }, body: { customerName: "Phone", phone: "07700 900000", method: "Delivery", address, pastryCount, drinkCount: 0, items: [{ manual: true, name: "Party tray", quantity: 1, price: 50 }] } },
+      res, (e) => { throw e; }
+    );
+    return saved;
+  };
+  const n = await run(NEWRY, 60);
+  assert.equal(n.deliveryFee, 3.5); assert.equal(n.deliveryTier, "newry"); assert.equal(n.totalAmount, 53.5);
+  const o = await run(ELSEWHERE, 60);
+  assert.equal(o.deliveryFee, 9.99); assert.equal(o.deliveryTier, "large"); assert.equal(o.totalAmount, 59.99);
+});

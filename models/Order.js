@@ -59,7 +59,7 @@ const orderSchema = new mongoose.Schema(
     // tiered policy don't have these fields and must keep their original
     // amounts untouched (their deliveryFee/totalAmount above are the record).
     subtotal: { type: Number, min: 0 },
-    deliveryTier: { type: String, enum: ["none", "pickup", "standard", "large"] },
+    deliveryTier: { type: String, enum: ["none", "pickup", "newry", "standard", "large"] },
     pastryUnits: { type: Number, min: 0 },
     drinkUnits: { type: Number, min: 0 },
 

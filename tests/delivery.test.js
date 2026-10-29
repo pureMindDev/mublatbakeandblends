@@ -60,3 +60,46 @@ test("exhaustive: £9.99 iff pastries > 30 OR drinks > 6, else £7.99 (never sum
     assert.equal(fee(p, d).fee, expected, `${p} pastries + ${d} drinks`);
   }
 });
+
+// ---- Newry special delivery area (£3.50 flat) ----
+const { isNewryAddress } = require("../utils/delivery");
+
+test("Newry: confirmed addresses get £3.50 whatever the basket size", () => {
+  for (const address of [
+    "12 Hill Street, Newry, BT35 6DR",
+    "12 Hill Street, newry, bt34 1aa",
+    "Flat 2, 12 Hill Street, NEWRY, Co. Down, BT35 6DR",
+    "12 Hill Street, Newry City, BT34 2XX",
+    "12 Hill Street,  Newry ,BT356DR",
+  ]) {
+    assert.equal(isNewryAddress(address), true, address);
+    assert.deepEqual(calculateDelivery({ method: "Delivery", pastryCount: 5, drinkCount: 1, address }), { fee: 3.5, tier: "newry" });
+    assert.equal(calculateDelivery({ method: "Delivery", pastryCount: 99, drinkCount: 40, address }).fee, 3.5); // never £9.99 or summed
+  }
+});
+
+test("Newry: not applied to other places or unconfirmed addresses", () => {
+  for (const address of [
+    "12 Hill Street, Belfast, BT1 1AA",
+    "Newry Road, Kilkeel, BT34 4AB",          // street name only
+    "3 Main St, Warrenpoint, BT34 3JA",       // same postcode district, different town
+    "12 Hill Street, Newry, E1 1AA",          // town says Newry but postcode is not
+    "12 Hill Street, Newry, BT36 6DR",        // not a Newry district
+    "12 Hill Street, Newry",                  // no postcode
+    "12 Hill Street, Newport, BT35 6DR",
+    "12 Hill Street, Newry Heights, BT35 6DR",
+    "BT35 6DR",
+    "",
+    undefined,
+  ]) {
+    assert.equal(isNewryAddress(address), false, String(address));
+    assert.equal(calculateDelivery({ method: "Delivery", pastryCount: 5, drinkCount: 1, address }).fee, 7.99, String(address));
+    assert.equal(calculateDelivery({ method: "Delivery", pastryCount: 31, drinkCount: 0, address }).fee, 9.99, String(address));
+  }
+});
+
+test("Newry: pickup stays free and an empty basket stays free", () => {
+  const address = "12 Hill Street, Newry, BT35 6DR";
+  assert.deepEqual(calculateDelivery({ method: "Pickup", pastryCount: 5, drinkCount: 1, address }), { fee: 0, tier: "pickup" });
+  assert.deepEqual(calculateDelivery({ method: "Delivery", pastryCount: 0, drinkCount: 0, hasItems: false, address }), { fee: 0, tier: "none" });
+});

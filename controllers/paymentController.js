@@ -25,7 +25,7 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
 
   // Prices, delivery fee and total are recalculated server-side — never
   // trusted from the client (same rules as POST /api/orders).
-  const pricing = await priceOrder(items, method);
+  const pricing = await priceOrder(items, method, address);
   const totalAmount = pricing.totalAmount;
   const amountPence = Math.round(totalAmount * 100);
 

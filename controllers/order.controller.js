@@ -33,9 +33,9 @@ const createOrder = asyncHandler(async (req, res) => {
 
   let pricing;
   if (isAdmin && Array.isArray(items) && items.length > 0 && items.every((i) => i.manual === true)) {
-    pricing = priceManualOrder(items, method, req.body);
+    pricing = priceManualOrder(items, method, req.body, address);
   } else {
-    pricing = await priceOrder(items, method);
+    pricing = await priceOrder(items, method, address);
   }
 
   const orderData = {
@@ -89,8 +89,8 @@ const createOrder = asyncHandler(async (req, res) => {
  * Nothing is stored.
  */
 const quoteOrder = asyncHandler(async (req, res) => {
-  const { items, method } = req.body;
-  const pricing = await priceOrder(items, method);
+  const { items, method, address } = req.body;
+  const pricing = await priceOrder(items, method, address);
 
   res.json({
     type: "success",
@@ -114,7 +114,7 @@ const quoteOrder = asyncHandler(async (req, res) => {
  * price). The admin states how many pastry pieces / drink bottles it
  * contains so the SAME delivery rules apply; the fee is still computed here.
  */
-function priceManualOrder(items, method, body) {
+function priceManualOrder(items, method, body, address) {
   const items2 = items.map((i) => {
     const price = Number(i.price);
     const quantity = Number(i.quantity);
@@ -127,7 +127,7 @@ function priceManualOrder(items, method, body) {
   const pastryUnits = toCount(body.pastryCount);
   const drinkUnits = toCount(body.drinkCount);
   const subtotalPence = items2.reduce((t, i) => t + Math.round(i.price * 100) * i.quantity, 0);
-  const delivery = calculateDelivery({ method, pastryCount: pastryUnits, drinkCount: drinkUnits });
+  const delivery = calculateDelivery({ method, pastryCount: pastryUnits, drinkCount: drinkUnits, address });
 
   return {
     items: items2,

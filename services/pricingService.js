@@ -22,8 +22,9 @@ const fromPence = (p) => p / 100;
  * @param {Array<{product, optionName, quantity}>} lines  raw cart lines
  * @param {Map<string, object>} productsById              id -> product doc/object
  * @param {string} method                                 "Delivery" | "Pickup"
+ * @param {string} [address]                              delivery address (decides the Newry fee)
  */
-function priceLines(lines, productsById, method) {
+function priceLines(lines, productsById, method, address) {
   if (!Array.isArray(lines) || lines.length === 0) {
     throw ApiError.badRequest("Order must contain at least one item");
   }
@@ -78,7 +79,7 @@ function priceLines(lines, productsById, method) {
     });
   }
 
-  const delivery = calculateDelivery({ method, pastryCount: pastryUnits, drinkCount: drinkUnits });
+  const delivery = calculateDelivery({ method, pastryCount: pastryUnits, drinkCount: drinkUnits, address });
   const subtotal = fromPence(subtotalPence);
   const total = fromPence(subtotalPence + toPence(delivery.fee));
 
@@ -94,7 +95,7 @@ function priceLines(lines, productsById, method) {
 }
 
 /** Loads products for the cart lines, then prices them. */
-async function priceOrder(rawItems, method) {
+async function priceOrder(rawItems, method, address) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw ApiError.badRequest("Order must contain at least one item");
   }
@@ -116,7 +117,7 @@ async function priceOrder(rawItems, method) {
   const products = await Product.find({ _id: { $in: ids } });
   const byId = new Map(products.map((p) => [String(p._id), p]));
 
-  return priceLines(lines, byId, method);
+  return priceLines(lines, byId, method, address);
 }
 
 module.exports = { priceOrder, priceLines, MAX_LINE_QUANTITY };
